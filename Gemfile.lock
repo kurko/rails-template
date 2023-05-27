@@ -109,6 +109,7 @@ GEM
       activesupport (>= 5.1)
       haml (>= 4.0.6)
       railties (>= 5.1)
+    happy_gemfile (0.1.2)
     i18n (1.12.0)
       concurrent-ruby (~> 1.0)
     io-console (0.6.0)
@@ -141,6 +142,8 @@ GEM
     net-smtp (0.3.3)
       net-protocol
     nio4r (2.5.8)
+    nokogiri (1.14.1-arm64-darwin)
+      racc (~> 1.4)
     nokogiri (1.14.1-x86_64-linux)
       racc (~> 1.4)
     orm_adapter (0.5.0)
@@ -259,6 +262,7 @@ GEM
     zeitwerk (2.6.7)
 
 PLATFORMS
+  arm64-darwin-22
   x86_64-linux
 
 DEPENDENCIES
@@ -268,11 +272,12 @@ DEPENDENCIES
   debug
   devise
   haml-rails (~> 2.0)
+  happy_gemfile
   jbuilder (~> 2.11.5)
   pg (~> 1.1)
   psych (< 4)
   puma (~> 6.0.1)
-  rails (~> 7.0.4, >= 7.0.4)
+  rails
   rspec-rails (~> 6.0.0)
   sassc-rails
   selenium-webdriver
@@ -285,7 +290,7 @@ DEPENDENCIES
   webdrivers
 
 RUBY VERSION
-   ruby 3.1.2p20
+   ruby 3.2.1p31
 
 BUNDLED WITH
    2.3.18
