@@ -1,0 +1,60 @@
+#!/usr/bin/env ruby
+
+# This file runs basic diagnostics to make sure the application has everything
+# it needs to run. Add new requirements as needed.
+APP_ROOT = File.expand_path('../../',  __FILE__)
+puts "Running diagnosis..."
+puts ""
+require_relative "../config/boot"
+
+def system!(*args)
+  system(*args) || abort("\n== Command #{args} failed ==")
+end
+
+if File.exist?("config/database.yml")
+  puts "✅ config/database.yml exists"
+else
+  puts "❌ config/database.yml doesn't exist"
+end
+
+begin
+  require_relative "../config/environment"
+  puts "✅ Essential ENV variables loaded with Dotenv. It means you can probably use `bin/rails server` just fine"
+  require 'bundler'
+rescue Dotenv::MissingKeys => e
+  puts "❌ Essential ENV variables are missing: #{e.message}"
+end
+
+if Rails.env.development?
+  result = false
+  begin
+    result = system("node --version")
+  rescue => e
+  end
+  if result
+    puts "✅ node is present"
+  else
+    puts "❌ node is missing. Without node we can't compile assets. If you're using nodenv, run `nodenv install 16.14.2 && nodenv global 16.14.2`"
+  end
+end
+
+# Need to check if a file exists? Use this:
+#
+# if File.exist?("config/some_file")
+#   puts "✅ config/some_file exists. This is necessary for running the application."
+# else
+#   puts "❌ config/some_file is missing, which is odd, as it should be in git"
+# end
+
+puts "\n== The following ENV vars are necessary for specific contexts ==\n"
+
+AppEnvVars::REQUIRED_KEYS_PER_CONTEXT.each do |context_name, evars|
+  next if context_name == :essential
+  begin
+    Dotenv.require_keys(evars)
+    puts "✅ #{context_name}: variables are present"
+
+  rescue Dotenv::MissingKeys => e
+    puts "❌ #{context_name}: ENV variables are missing: #{e.message}. If you're not using this context, it should be fine."
+  end
+end

@@ -1,3 +1,6 @@
+require 'json'
+
+# These gems need to be approved  (e.g yes()) before they are installed
 OPTIONAL_GEMS = {
   # gem name => environments
   "devise" => nil,
@@ -8,52 +11,53 @@ def apply_template!
 
   git_commit("Initial commit", init: true)
 
-  copy_file "config/application.rb"
+  run "echo 'node_modules' >> .gitignore"
+  copy_file "config/application.rb", force: true
   copy_file "config/initializers/sidekiq.rb"
   copy_file "config/initializers/redis.rb"
+  copy_file "config/initializers/app_env_vars_and_dotenv.rb"
+  copy_file ".env"
+  copy_file "Procfile", force: true
+
+  copy_file "bin/doctor", force: true
+  copy_file "bin/reset_db", force: true
+  copy_file "bin/dev-all", force: true
+  copy_file "bin/dev-web", force: true
+  copy_file "README_TEMPLATE.md", "README.md", force: true
+  copy_file "docs/README.md", force: true
   git_commit("Sets config/ files")
 
   setup_gems
 
-  return
-  apply "app/template.rb"
 
-  run "yarn add tailwindcss postcss postcss-flexbugs-fixes postcss-import postcss-nested"
-  run "yarn add @tailwindcss/forms @tailwindcss/typography"
-  run "npx tailwindcss init"
-  copy_file "tailwind.config.js"
+  after_bundle do
+    git_commit("Rails initialized")
 
-  # Setup database
-  rails_command "db:create"
-  rails_command "db:migrate"
+    apply "app/template.rb"
 
-  # Add root route
-  route "root to: 'pages#home'"
+    # CSS
+    run "yarn add --silent tailwindcss postcss postcss-flexbugs-fixes postcss-import postcss-nested autoprefixer postcss-preset-env"
+    run "yarn add --silent @tailwindcss/forms @tailwindcss/typography @tailwindcss/aspect-ratio"
+    run "npx tailwindcss init"
+    copy_file "tailwind.config.js", force: true
+    copy_file "postcss.config.js", force: true
+    # Javascript
+    run "yarn add --silent esbuild @hotwired/turbo-rails @hotwired/stimulus"
 
-  # Generate a Procfile for `foreman` and Heroku
-  file(
-    "Procfile.dev",
-    <<~PROCFILE
-      web: bin/rails server -p 3000
-      js: yarn build --watch
-      css: yarn build:css --watch
-    PROCFILE
-  )
+    # Setup database
+    copy_file "config/database.yml", force: true
+    gsub_file "config/database.yml", "{{APP_NAME}}", app_name.underscore
+    run "bin/setup"
 
-  inject_into_file 'package.json', before: "^}" do <<-'RUBY'
-    ,
-    "scripts": {
-      "build": "esbuild app/javascript/*.* --bundle --sourcemap --outdir=app/assets/builds --public-path=assets",
-      "build:css": "tailwindcss --postcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css"
-    }
-  RUBY
+    # Add root route
+    route "root to: 'pages#home'"
+
+    setup_package_json
+    setup_tests
+
+    puts "• Done!"
+    puts "• Run `bin/dev-web` to start the web app."
   end
-
-  git add: "."
-  git commit: '-a -m "Rails template applied"'
-
-  puts "Done!"
-  puts "Run `foreman start -f Procfile.dev` to start the app."
 end
 
 require "fileutils"
@@ -91,6 +95,8 @@ def git_commit(message, init: false)
 end
 
 def setup_gems
+  puts "• Setting up gems..."
+
   gem "amazing_print"
   gem "clockwork"
   copy_file "config/clock.rb"
@@ -102,7 +108,6 @@ def setup_gems
   gem "hiredis"
   # Use Kredis to get higher-level data types in Redis [https://github.com/rails/kredis]
   gem "kredis"
-  gem "redis"
   gem 'redis-store'
   gem 'redis-rails'
   # This is deprecated but some gems need it (e.g devise:install). Despite being
@@ -120,6 +125,7 @@ def setup_gems
   gem_group :development do
     gem "annotate"
     gem "better_errors"
+    gem "binding_of_caller"
     gem "foreman"
     gem "happy_gemfile"
     gem "spring"
@@ -127,17 +133,18 @@ def setup_gems
   end
 
   gem_group :test do
-    gem "capybara"
+    # Capybara, Selenium, and ChromeDriver for system testing are already part
+    # of new rails apps by default
+    gem "database_cleaner"
     gem "launchy"
-    gem "selenium-webdriver"
-    gem "webdrivers"
+    gem "webmock"
   end
 
   run "bundle install --quiet"
   git_commit("Basic gems installed")
 
   OPTIONAL_GEMS.each do |gem_name, environments|
-    next unless yes?("Install `#{gem_name}`? [Y/n]")
+    next if skip_command?(gem_name) || !yes?("Install `#{gem_name}`? [Y/n]")
 
     if respond_to?(:"install_#{gem_name}")
       send(:"install_#{gem_name}", environments)
@@ -146,11 +153,29 @@ def setup_gems
     end
   end
 
-  #run "bundle exec happy_gemfile all"
-  git_commit("organizes Gemfile with happy_gemfile")
+  # TODO - should run this for organizing the Gemfile?
+  #
+  # run "bundle exec happy_gemfile all"
+  # git_commit("organizes Gemfile with happy_gemfile")
+end
+
+def setup_tests
+  puts "• Setting up tests..."
+  copy_file "spec/support/fixtures.rb", force: true
+  copy_file "spec/spec_helper.rb", force: true
+  copy_file "spec/rails_helper.rb", force: true
+  copy_file "spec/lib/testing_the_suite_spec.rb", force: true
+  # Create a new directory
+  empty_directory "spec/fixtures/"
+  # Create a .keep file in the new directory
+  create_file "spec/fixtures/.keep"
+  git_commit("adds tests")
+  puts "• Running tests..."
+  run "bundle exec rspec spec"
 end
 
 def install_devise(environments)
+  puts "• Installing Devise..."
   install_gem(:devise, environments)
 
   # Run Devise generators
@@ -176,7 +201,34 @@ def install_gem(gem_name, environments)
       gem gem_name.to_s
     end
   end
-  run "bundle install"
+  run "bundle install --quiet"
+end
+
+def setup_package_json
+  puts "• Setting up package.json..."
+  # Read the file
+  file_path = 'package.json'
+  json = JSON.parse(File.read(file_path))
+
+  # Add new scripts to the existing JSON
+  json['scripts'] = {
+    'build' => 'esbuild app/javascript/*.* --bundle --sourcemap --outdir=app/assets/builds --public-path=assets',
+    'build:css' => 'tailwindcss --postcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css'
+  }
+
+  # Write the modified JSON back to the file
+  File.open(file_path, 'w') do |file|
+    file.write(JSON.pretty_generate(json))
+  end
+  git_commit("add scripts to package.json")
+end
+
+def skip_command?(command)
+  if ARGV.include?("--skip-#{command}")
+    say "Skipping #{command} installation..."
+    return true
+  end
+  false
 end
 
 apply_template!

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8">
+
+    <%= render 'shared/metatags' %>
+
+    <title><%= content_for?(:title) ? yield(:title) : "Rails App" %></title>
+
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= stylesheet_link_tag 'application', media: 'all', 'data-turbolinks-track': 'reload' %>
+    <%= javascript_tag 'application', 'data-turbolinks-track': 'reload' %>
+
+  </head>
+  <body>
+    <%= render 'shared/header' %>
+    <%= render 'shared/navigation' %>
+
+    <section class="mt-1">
+      <%= yield %>
+    </section>
+
+    <%= render 'shared/footer' %>
+  </body>
+</html>
