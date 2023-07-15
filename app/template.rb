@@ -2,7 +2,10 @@
 copy_file "app/assets/config/manifest.js", force: true
 
 # javascript
-copy_file "app/javascript/application.js", force: true
+remove_file "app/javascript/application.js", force: true
+copy_file "app/javascript/application.tsx", force: true
+copy_file "app/javascript/mount-components.tsx", force: true
+copy_file "app/javascript/components/SampleComponent.tsx", force: true
 copy_file "app/javascript/controllers/index.js", force: true
 
 # stylesheets
@@ -11,6 +14,9 @@ copy_file "app/assets/stylesheets/application.tailwind.css"
 
 # controllers
 copy_file "app/controllers/pages_controller.rb"
+
+# helpers
+copy_file "app/helpers/react_helper.rb"
 
 # layouts
 directory "app/views/shared"

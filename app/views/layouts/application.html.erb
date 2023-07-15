@@ -22,6 +22,12 @@
 
     <section class="mt-1">
       <%= yield %>
+
+      <!-- React: use this if you want an SPA in which one component -->
+      <!-- is the entrypoint for the rest of your app. -->
+      <!--
+        <div data-react-component='App' data-props="{}"></div>
+      -->
     </section>
 
     <%= render 'shared/footer' %>

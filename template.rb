@@ -29,7 +29,6 @@ def apply_template!
 
   setup_gems
 
-
   after_bundle do
     git_commit("Rails initialized")
 
@@ -40,9 +39,13 @@ def apply_template!
     run "yarn add --silent @tailwindcss/forms @tailwindcss/typography @tailwindcss/aspect-ratio"
     run "npx tailwindcss init"
     copy_file "tailwind.config.js", force: true
+    copy_file "tsconfig.json", force: true
     copy_file "postcss.config.js", force: true
     # Javascript
     run "yarn add --silent esbuild @hotwired/turbo-rails @hotwired/stimulus"
+
+    # Also React for those moments when it's best
+    run "yarn add react@^18.2 react-dom@^18.2 @types/react @types/react-dom typescript"
 
     # Setup database
     copy_file "config/database.yml", force: true
